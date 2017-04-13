@@ -37,7 +37,6 @@ test_df = pd.read_csv('../data/test.csv')
 ##############################################
 # Define pipeline
 
-
 #### Example below #######################
 
 

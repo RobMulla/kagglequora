@@ -90,8 +90,11 @@ class WordMatchShare(PipelineEstimator):
         return R
 
     def transform(self, X, y = None):
-        X['word_match_share'] = X.apply(word_match_share, axis=1, raw=True)
-        x['tfidf_word_match_share'] = df_train.apply(self.tfidf_word_match_share, axis=1, raw=True)
+        X['tfidf_word_match_share'] = X.apply(self.tfidf_word_match_share, axis=1, raw=True)
+        
+        X['word_match_share'] = X.apply(self.word_match_share, axis=1, raw=True)
+
+        return X
 
 
 class SentimentFeatures(PipelineEstimator):
