@@ -14,6 +14,11 @@ from nltk.sentiment.vader import SentimentIntensityAnalyzer
 
 from nltk import word_tokenize, ngrams
 
+
+# not sure if this is best location for the function
+
+
+
 class PipelineEstimator(BaseEstimator, TransformerMixin):
     """Define the necessary methods"""
 
@@ -45,21 +50,28 @@ class FuzzyFeatures(PipelineEstimator):
         X['fuzz_token_set_ratio'] = X.apply(lambda x: fuzz.token_set_ratio(str(x['question1']), str(x['question2'])), axis=1)
         X['fuzz_token_sort_ratio'] = X.apply(lambda x: fuzz.token_sort_ratio(str(x['question1']), str(x['question2'])), axis=1)
         return X
-                
+
 class WordMatchShare(PipelineEstimator):
     """Return only specified columnss"""
 
     def __init__(self, cols = (), invert = False):
         self.stops = set(stopwords.words("english"))
 
-    def word_match_share(row):
+    @staticmethod
+    def get_weight(count, eps=10000, min_count=2):
+        if count < min_count:
+            return 0
+        else:
+            return 1 / (count + eps)
+
+    def word_match_share(self,row):
         q1words = {}
         q2words = {}
         for word in str(row['question1']).lower().split():
-            if word not in stops:
+            if word not in self.stops:
                 q1words[word] = 1
         for word in str(row['question2']).lower().split():
-            if word not in stops:
+            if word not in self.stops:
                 q2words[word] = 1
         if len(q1words) == 0 or len(q2words) == 0:
             # The computer-generated chaff includes a few questions that are nothing but stopwords
@@ -69,29 +81,33 @@ class WordMatchShare(PipelineEstimator):
         R = (len(shared_words_in_q1) + len(shared_words_in_q2))/(len(q1words) + len(q2words))
         return R
 
-
-    def tfidf_word_match_share(row):
+    def tfidf_word_match_share(self,row):
         q1words = {}
         q2words = {}
         for word in str(row['question1']).lower().split():
-            if word not in stops:
+            if word not in self.stops:
                 q1words[word] = 1
         for word in str(row['question2']).lower().split():
-            if word not in stops:
+            if word not in self.stops:
                 q2words[word] = 1
         if len(q1words) == 0 or len(q2words) == 0:
             # The computer-generated chaff includes a few questions that are nothing but stopwords
             return 0
-        
-        shared_weights = [weights.get(w, 0) for w in q1words.keys() if w in q2words] + [weights.get(w, 0) for w in q2words.keys() if w in q1words]
-        total_weights = [weights.get(w, 0) for w in q1words] + [weights.get(w, 0) for w in q2words]
-        
+
+        shared_weights = [self.weights.get(w, 0) for w in q1words.keys() if w in q2words] + [self.weights.get(w, 0) for w in q2words.keys() if w in q1words]
+        total_weights = [self.weights.get(w, 0) for w in q1words] + [self.weights.get(w, 0) for w in q2words]
+
         R = np.sum(shared_weights) / np.sum(total_weights)
         return R
 
     def transform(self, X, y = None):
+        qs = pd.Series(X['question1'].tolist() + X['question2'].tolist()).astype(str)
+        words = (" ".join(qs)).lower().split()
+        counts = Counter(words)
+        self.weights = {word: self.get_weight(count) for word, count in counts.items()}
+
         X['tfidf_word_match_share'] = X.apply(self.tfidf_word_match_share, axis=1, raw=True)
-        
+
         X['word_match_share'] = X.apply(self.word_match_share, axis=1, raw=True)
 
         return X
@@ -139,7 +155,7 @@ class LengthShare(PipelineEstimator):
         X['diff_len'] = X['q1len'] - X['q2len']
         return X
 
-        # 
+        #
         xfill = X.fillna("", inplace=True)
         X['q1_n_words'] = xfill['question1'].apply(lambda row: len(row.split(" ")))
         X['q2_n_words'] = xfill['question2'].apply(lambda row: len(row.split(" ")))
@@ -149,7 +165,7 @@ class LengthShare(PipelineEstimator):
 
     def normalized_word_share(row):
         w1 = set(map(lambda word: word.lower().strip(), row['question1'].split(" ")))
-        w2 = set(map(lambda word: word.lower().strip(), row['question2'].split(" ")))    
+        w2 = set(map(lambda word: word.lower().strip(), row['question2'].split(" ")))
         return 1.0 * len(w1 & w2)/(len(w1) + len(w2))
 
 
@@ -180,4 +196,3 @@ class BinarySplitter(PipelineEstimator):
     def transform(self, X, y = None):
         X[self.new_name] = X[self.col] >= self.threshold
         return X
-        
