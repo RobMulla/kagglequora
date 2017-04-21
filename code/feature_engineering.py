@@ -143,30 +143,30 @@ class SelectCols(PipelineEstimator):
 class LengthShare(PipelineEstimator):
     """Length Share"""
 
-    def __init__(self, col, threshold, new_name = None):
+    def __init__(self):
         pass
 
+
+    def normalized_word_share(self, row):
+        w1 = set(map(lambda word: word.lower().strip(), row['question1'].split(" ")))
+        w2 = set(map(lambda word: word.lower().strip(), row['question2'].split(" ")))
+        return 1.0 * len(w1 & w2)/(len(w1) + len(w2))
 
     def transform(self, X, y = None):
         X['q1len'] = X['question1'].str.len()
         X['q2len'] = X['question2'].str.len()
-
         # lets calculate difference in question length as well
         X['diff_len'] = X['q1len'] - X['q2len']
-        return X
 
-        #
-        xfill = X.fillna("", inplace=True)
+
+        xfill = X.fillna("")
         X['q1_n_words'] = xfill['question1'].apply(lambda row: len(row.split(" ")))
         X['q2_n_words'] = xfill['question2'].apply(lambda row: len(row.split(" ")))
         X['diff_n_words'] = X['q1_n_words'] - X['q2_n_words']
 
-        X['word_share'] = df_train.apply(self.normalized_word_share, axis=1)
+        X['word_share'] = X.apply(self.normalized_word_share, axis=1)
 
-    def normalized_word_share(row):
-        w1 = set(map(lambda word: word.lower().strip(), row['question1'].split(" ")))
-        w2 = set(map(lambda word: word.lower().strip(), row['question2'].split(" ")))
-        return 1.0 * len(w1 & w2)/(len(w1) + len(w2))
+        return X
 
 
 class BinarySplitter(PipelineEstimator):
