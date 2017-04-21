@@ -15,10 +15,6 @@ from nltk.sentiment.vader import SentimentIntensityAnalyzer
 from nltk import word_tokenize, ngrams
 
 
-# not sure if this is best location for the function
-
-
-
 class PipelineEstimator(BaseEstimator, TransformerMixin):
     """Define the necessary methods"""
 
